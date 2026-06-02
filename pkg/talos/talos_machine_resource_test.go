@@ -347,6 +347,7 @@ func TestAccTalosMachine_upgrade(t *testing.T) {
 	const (
 		baseImage      = "ghcr.io/siderolabs/installer"
 		baseVersion    = "v1.12.7"
+		upgradeImage   = "factory.talos.dev/metal-installer/c9078f9419961640c712a8bf2bb9174933dfcf1da383fd8ea2b7dc21493f8bac"
 		upgradeVersion = "v1.13.0"
 	)
 
@@ -380,59 +381,23 @@ func TestAccTalosMachine_upgrade(t *testing.T) {
 					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
 				),
 			},
-			// Step 3: idempotency after upgrade
+			// Step 3: idempotency after version upgrade
 			{
 				Config:   testAccTalosMachineConfig(rName, baseImage, upgradeVersion, baseVersion),
 				PlanOnly: true,
 			},
-		},
-	})
-}
-
-// TestAccTalosMachine_upgrade tests that changing image schematic triggers an OS upgrade.
-// It will use the same version v1.13.0 before and after upgrade.
-//
-//nolint:dupl
-func TestAccTalosMachine_upgradeSchematic(t *testing.T) {
-	const (
-		talosVersion = "v1.13.0"
-		baseImage    = "ghcr.io/siderolabs/installer"
-		upgradeImage = "factory.talos.dev/metal-installer/c9078f9419961640c712a8bf2bb9174933dfcf1da383fd8ea2b7dc21493f8bac"
-	)
-
-	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
-
-	resource.ParallelTest(t, resource.TestCase{
-		ExternalProviders: map[string]resource.ExternalProvider{
-			"libvirt": {
-				Source:            "dmacvicar/libvirt",
-				VersionConstraint: "= 0.8.3",
-			},
-		},
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			// Step 1: node at base version, cluster bootstrapped and healthy
+			// Step 4: change the image schematic, cluster still healthy afterwards
 			{
-				Config: testAccTalosMachineConfig(rName, baseImage, talosVersion, talosVersion),
+				Config: testAccTalosMachineConfig(rName, upgradeImage, upgradeVersion, baseVersion),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("talos_machine.this", "image",
-						fmt.Sprintf("%s:%s", baseImage, talosVersion)),
-					resource.TestCheckResourceAttrSet("talos_machine.this", "machine_configuration_hash"),
+						fmt.Sprintf("%s:%s", upgradeImage, upgradeVersion)),
 					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
 				),
 			},
-			// Step 2: change the image schematic, cluster still healthy afterwards
+			// Step 5: idempotency after changing the image schematic
 			{
-				Config: testAccTalosMachineConfig(rName, upgradeImage, talosVersion, talosVersion),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("talos_machine.this", "image",
-						fmt.Sprintf("%s:%s", upgradeImage, talosVersion)),
-					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
-				),
-			},
-			// Step 3: idempotency after upgrade
-			{
-				Config:   testAccTalosMachineConfig(rName, upgradeImage, talosVersion, talosVersion),
+				Config:   testAccTalosMachineConfig(rName, upgradeImage, upgradeVersion, baseVersion),
 				PlanOnly: true,
 			},
 		},
